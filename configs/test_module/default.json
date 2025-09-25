@@ -1,0 +1,7 @@
+{
+  "config_file": "configs/test_module/default.json",
+  "output_dir": "/tmp/gtools_test_output",
+  "verbose": false,
+  "dry_run": false,
+  "items": ["item1", "item2", "item3"]
+}
