@@ -17,6 +17,7 @@ fi
 
 echo "安装项目到当前Python环境..."
 cd "$PROJECT_DIR"
+pip install -r requirements.txt
 pip install -e .
 
 echo "验证安装..."

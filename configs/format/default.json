@@ -1,0 +1,22 @@
+{
+  "recursive": true,
+  "check_only": false,
+  "list_files": false,
+  "use_pylint": true,
+  "use_black": true,
+  "use_isort": true,
+  "use_autopep8": false,
+  "line_length": 88,
+  "pylint_score": 8.0,
+  "no_pylint_after": false,
+  "_positional_args": {
+    "path": "functions"
+  },
+  "pylint_disable": [
+    "unused-import",
+    "f-string-without-interpolation",
+    "too-few-public-methods",
+    "too-many-arguments"
+  ],
+  "pylint_config": ""
+}

@@ -1,0 +1,7 @@
+black>=22.0.0           # Python 代码格式化
+isort>=5.10.0           # 导入语句排序
+autopep8>=2.0.0         # PEP8 自动格式化
+pylint>=2.15.0          # 代码质量检查
+
+opencv-python>=4.6.0   # 图像处理
+tqdm>=4.64.0           # 进度条显示

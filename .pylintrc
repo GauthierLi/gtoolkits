@@ -1,0 +1,28 @@
+[MASTER]
+# 指定Python版本
+python-version = 3.8
+
+[MESSAGES CONTROL]
+# 禁用一些常见的不重要警告
+disable = 
+    unused-import,
+    f-string-without-interpolation,
+    too-few-public-methods,
+    too-many-arguments,
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    line-too-long,
+    invalid-name
+
+[FORMAT]
+# 最大行长度
+max-line-length = 88
+
+[DESIGN]
+# 允许的参数数量
+max-args = 8
+# 允许的局部变量数量  
+max-locals = 20
+# 允许的分支数量
+max-branches = 15
