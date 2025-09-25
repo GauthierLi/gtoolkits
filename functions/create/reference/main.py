@@ -6,8 +6,6 @@ import argparse
 
 from gtools.registry import ARGS, FUNCTION
 
-MODULE_NAME = "MODULE_NAME"
-
 
 @FUNCTION.regist(module_name=f"{MODULE_NAME}")
 def main(args: argparse.Namespace):
