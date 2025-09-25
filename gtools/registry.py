@@ -1,15 +1,13 @@
 """
-注册机制的核心实现
+注册机制的完整实现
+包含：Registry类、配置处理、工具函数和全局实例
 """
-from .common.registry import Registry
-
-FUNCTION = Registry("FUNCTION")
-ARGS = Registry("ARGS")
 import json
 import os
-from typing import Dict, Callable, Any, Optional
-from collections import defaultdict
+import sys
+import importlib
 import argparse
+from typing import Dict, Callable, Any, Optional
 
 
 class Registry:
@@ -73,8 +71,33 @@ class ConfigHandler:
                 setattr(merged_args, key, value)
         
         return merged_args
-FUNCTION = Registry("FUNCTION")
-ARGS = Registry("ARGS")
+
+
+def auto_import_functions_modules():
+    """自动导入 functions 目录下的功能模块"""
+    base_dir = os.path.dirname(os.path.dirname(__file__))
+    functions_dir = os.path.join(base_dir, "functions")
+    
+    if not os.path.exists(functions_dir):
+        return
+    
+    sys.path.insert(0, base_dir)
+    
+    for item in os.listdir(functions_dir):
+        item_path = os.path.join(functions_dir, item)
+        if os.path.isdir(item_path) and not item.startswith('_'):
+            module_file = os.path.join(item_path, "main.py")
+            if os.path.exists(module_file):
+                try:
+                    module_name = f"functions.{item}.main"
+                    importlib.import_module(module_name)
+                except ImportError as e:
+                    print(f"Warning: Failed to import {module_name}: {e}")
+
+
+def get_project_root() -> str:
+    """获取项目根目录"""
+    return os.path.dirname(os.path.dirname(__file__))
 
 
 def get_module_info(module_name: str) -> Dict[str, Any]:
@@ -100,3 +123,8 @@ def list_all_modules() -> list:
 def validate_module(module_name: str) -> bool:
     """验证模块是否完整注册（既有函数又有参数解析器）"""
     return FUNCTION.has(module_name) and ARGS.has(module_name)
+
+
+# 全局注册实例
+FUNCTION = Registry("FUNCTION")
+ARGS = Registry("ARGS")

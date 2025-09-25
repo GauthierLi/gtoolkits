@@ -6,12 +6,13 @@ import os
 import argparse
 from typing import List, Optional
 
-from .registry import FUNCTION, ARGS
-from .common import (
+from .registry import (
+    FUNCTION, 
+    ARGS, 
+    ConfigHandler,
     get_module_info, 
     list_all_modules, 
     validate_module,
-    ConfigHandler,
     auto_import_functions_modules
 )
 
@@ -48,14 +49,14 @@ class CLI:
     
     def handle_list_command(self):
         """处理 list 命令"""
-        modules = list_all_modules(FUNCTION, ARGS)
+        modules = list_all_modules()
         if not modules:
             print("没有找到已注册的模块")
             return
         
         print("已注册的模块:")
         for module in modules:
-            status = "✓" if validate_module(FUNCTION, ARGS, module) else "✗"
+            status = "✓" if validate_module(module) else "✗"
             print(f"  {status} {module}")
         
         print(f"\n总计: {len(modules)} 个模块")
@@ -63,13 +64,13 @@ class CLI:
     
     def handle_info_command(self, module_name: str):
         """处理 info 命令"""
-        info = get_module_info(FUNCTION, ARGS, module_name)
+        info = get_module_info(module_name)
         
         print(f"模块信息: {module_name}")
         print("-" * 40)
         print(f"函数已注册: {'是' if info['has_function'] else '否'}")
         print(f"参数解析器已注册: {'是' if info['has_args'] else '否'}")
-        print(f"完整性: {'完整' if validate_module(FUNCTION, ARGS, module_name) else '不完整'}")
+        print(f"完整性: {'完整' if validate_module(module_name) else '不完整'}")
         
         config_path = self.config_handler.get_default_config_path(module_name)
         config_exists = os.path.exists(config_path)
@@ -78,7 +79,7 @@ class CLI:
     
     def run_module(self, module_name: str, args: List[str]):
         """运行指定的模块"""
-        if not validate_module(FUNCTION, ARGS, module_name):
+        if not validate_module(module_name):
             print(f"错误: 模块 '{module_name}' 未完整注册")
             if not FUNCTION.has(module_name):
                 print(f"  缺少函数注册，请使用 @FUNCTION.regist(module_name='{module_name}')")
@@ -94,13 +95,56 @@ class CLI:
             default_config = self.config_handler.load_config(config_path)
             
             temp_parser = args_parser_func()
+            parsed_args = None
             
-            try:
+            # 如果没有提供命令行参数但有默认配置，直接使用配置构建参数
+            if not args and default_config:
+                synthetic_args = []
+                
+                # 处理位置参数 - 从 _positional_args 中获取（如果存在）
+                positional_config = default_config.get('_positional_args', {})
+                for param_name, param_value in positional_config.items():
+                    if isinstance(param_value, list):
+                        synthetic_args.extend(map(str, param_value))
+                    else:
+                        synthetic_args.append(str(param_value))
+                
+                # 处理可选参数 - 除了 _positional_args 外的其他键
+                for key, value in default_config.items():
+                    if key == '_positional_args':
+                        continue
+                    
+                    # 查找对应的 action 来确定如何构建参数
+                    for action in temp_parser._actions:
+                        if action.dest == key and action.option_strings:
+                            if isinstance(action, argparse._StoreTrueAction) and value:
+                                synthetic_args.append(action.option_strings[0])
+                            elif not isinstance(action, argparse._StoreTrueAction):
+                                synthetic_args.extend([action.option_strings[0], str(value)])
+                            break
+                
+                # 使用合成的参数进行解析
+                if synthetic_args:
+                    parsed_args = temp_parser.parse_args(synthetic_args)
+                else:
+                    # 如果没有合成参数，尝试正常解析
+                    parsed_args = temp_parser.parse_args(args)
+            else:
+                # 有命令行参数或没有默认配置，正常解析
                 parsed_args = temp_parser.parse_args(args)
-            except SystemExit as e:
-                sys.exit(e.code)
             
-            final_args = self.config_handler.merge_configs(default_config, parsed_args)
+            # 合并配置时需要处理新的配置结构
+            final_config = {}
+            if default_config:
+                # 将位置参数配置展开到顶层（如果存在）
+                if '_positional_args' in default_config:
+                    final_config.update(default_config['_positional_args'])
+                # 添加其他配置项
+                for key, value in default_config.items():
+                    if key != '_positional_args':
+                        final_config[key] = value
+            
+            final_args = self.config_handler.merge_configs(final_config, parsed_args)
             
             print(f"运行模块: {module_name}")
             main_func(final_args)
