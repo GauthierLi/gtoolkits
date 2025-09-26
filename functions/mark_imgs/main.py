@@ -48,7 +48,6 @@ from gtools.registry import ARGS, FUNCTION
 
 MODULE_NAME = "mark_imgs"
 CACHE_PATH = "/tmp/.cache/read_file_offline.pkl"
-OUT_PATH = "/tmp/oup_img.txt"
 
 
 @ARGS.regist(module_name="mark_imgs")
@@ -273,6 +272,7 @@ def process_key_event(
     current_images: List[str],
     marked_paths: Dict[str, int],
     mark_type: str,
+    out_path: str,
 ) -> Tuple[int]:
     """Process keyboard events and update indices accordingly."""
     if key == ord("q"):
@@ -292,10 +292,10 @@ def process_key_event(
             if mark_type == "bags":
                 current_image_path = current_image_path.split("/")[-2]
             if current_image_path not in marked_paths:
-                with open(OUT_PATH, "a") as f:
+                with open(out_path, "a") as f:
                     f.write(current_image_path + "\n")
                 marked_paths[current_image_path] = (folder_index, image_index)
-                print(f"Marked: {current_image_path} at {OUT_PATH}")
+                print(f"Marked: {current_image_path} at {out_path}")
     elif key == ord("o"):
         current_image_path = (
             current_images[image_index]
@@ -305,9 +305,9 @@ def process_key_event(
         if mark_type == "bags":
             current_image_path = current_image_path.split("/")[-2]
         if current_image_path and current_image_path in marked_paths:
-            with open(OUT_PATH, "r") as f:
+            with open(out_path, "r") as f:
                 lines = f.readlines()
-            with open(OUT_PATH, "w") as f:
+            with open(out_path, "w") as f:
                 for line in lines:
                     if line.strip() != current_image_path:
                         f.write(line)
@@ -342,11 +342,12 @@ def saved_bags(image_folders: List[str], bags: Set[str]):
 
 @FUNCTION.regist(module_name=f"mark_imgs")
 def main(args: argparse.Namespace) -> None:
+    out_path = "/tmp/oup_img.txt"  # 使用局部变量而不是全局变量
     if args.sp_name is not None:
-        OUT_PATH = OUT_PATH.replace("oup_img", args.sp_name)
-        print(OUT_PATH)
+        out_path = out_path.replace("oup_img", args.sp_name)
+        print(out_path)
 
-    with open(OUT_PATH, "w"):
+    with open(out_path, "w"):
         pass
 
     os.makedirs(r"/tmp/.cache", exist_ok=True)
@@ -430,6 +431,7 @@ def main(args: argparse.Namespace) -> None:
             current_images,
             marked_paths,
             args.mark_type,
+            out_path,
         )
         print(
             "\r# ------------------",
