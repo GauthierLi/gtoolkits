@@ -4,6 +4,7 @@
 import sys
 import os
 import argparse
+import traceback
 from typing import List, Optional
 from beautifultable import BeautifulTable
 
@@ -206,7 +207,12 @@ class CLI:
             main_func(final_args)
             
         except Exception as e:
-            print(f"运行模块 '{module_name}' 时出错: {e}")
+            print(f"\n❌ 运行模块 '{module_name}' 时出错:")
+            print(f"错误信息: {e}")
+            print("\n详细错误追踪:")
+            print("-" * 50)
+            traceback.print_exc()
+            print("-" * 50)
             sys.exit(1)
     
     def auto_import_modules(self):
