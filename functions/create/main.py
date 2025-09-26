@@ -58,11 +58,29 @@ def main(args: argparse.Namespace):
         shutil.copy2(template_config, target_config)
         print(f"✅ 创建配置文件: {target_config}")
 
+        # 复制并处理 start.sh 模板文件
+        template_start = template_dir / "start.sh"
+        target_start = module_dir / "start.sh"
+
+        with open(template_start, "r", encoding="utf-8") as f:
+            start_content = f.read()
+
+        # 替换占位符
+        start_content = replace_placeholders(start_content, module_name)
+
+        with open(target_start, "w", encoding="utf-8") as f:
+            f.write(start_content)
+
+        # 添加执行权限
+        os.chmod(target_start, 0o755)
+        print(f"✅ 创建启动脚本: {target_start}")
+
         print(f"\n🎉 模块 '{module_name}' 创建成功！")
         print(f"📂 模块路径: {module_dir}")
         print(f"⚙️  配置路径: {config_dir}")
         print(f"\n📖 使用方法:")
         print(f"   gtools {module_name}           # 使用默认配置运行")
+        print(f"   gtools {module_name} start     # 执行启动脚本")
         print(f"   gtools {module_name} --help   # 查看帮助信息")
         print(f"\n📝 配置文件说明:")
         print(f'   • 位置参数配置: 使用 "_positional_args" 字段')

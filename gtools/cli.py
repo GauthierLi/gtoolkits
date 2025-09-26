@@ -5,6 +5,7 @@ import sys
 import os
 import argparse
 from typing import List, Optional
+from beautifultable import BeautifulTable
 
 from .registry import (
     FUNCTION, 
@@ -13,7 +14,10 @@ from .registry import (
     get_module_info, 
     list_all_modules, 
     validate_module,
-    auto_import_functions_modules
+    auto_import_functions_modules,
+    list_modules_with_start_sh,
+    execute_start_sh,
+    get_module_start_sh_path
 )
 
 
@@ -33,6 +37,8 @@ class CLI:
 使用示例:
   gtools module_name -h                    # 显示模块帮助信息
   gtools module_name --param1 value1      # 运行模块并指定参数
+  gtools module_name start                 # 执行模块的start.sh脚本
+  gtools module_name start arg1 arg2       # 执行模块的start.sh脚本并传递参数
   gtools list                             # 列出所有可用模块
   gtools info module_name                 # 显示模块详细信息
             """.strip()
@@ -55,27 +61,77 @@ class CLI:
             return
         
         print("已注册的模块:")
-        for module in modules:
-            status = "✓" if validate_module(module) else "✗"
-            print(f"  {status} {module}")
+        print("-" * 70)
         
+        # 创建美化表格
+        table = BeautifulTable()
+        table.columns.header = ["模块名", "注册状态", "start.sh"]
+        
+        # 添加表格数据
+        for module in modules:
+            is_complete = validate_module(module)
+            has_start_sh = get_module_start_sh_path(module) is not None
+            
+            status = "✓ 完整" if is_complete else "✗ 不完整"
+            start_sh_status = "✓ 有" if has_start_sh else "✗ 无"
+            
+            table.rows.append([module, status, start_sh_status])
+        
+        # 设置表格样式
+        table.set_style(BeautifulTable.STYLE_GRID)
+        table.columns.alignment['模块名'] = BeautifulTable.ALIGN_LEFT
+        table.columns.alignment['注册状态'] = BeautifulTable.ALIGN_CENTER
+        table.columns.alignment['start.sh'] = BeautifulTable.ALIGN_CENTER
+        
+        print(table)
         print(f"\n总计: {len(modules)} 个模块")
-        print("说明: ✓ 表示模块完整注册（有函数和参数解析器），✗ 表示注册不完整")
+        print("说明:")
+        print("  • 注册状态: ✓ 表示模块完整注册（有函数和参数解析器），✗ 表示注册不完整")
+        print("  • start.sh: ✓ 表示模块包含启动脚本，✗ 表示无启动脚本")
+        print("  • 使用 'gtools <module_name> start' 执行包含启动脚本的模块")
     
     def handle_info_command(self, module_name: str):
         """处理 info 命令"""
         info = get_module_info(module_name)
         
         print(f"模块信息: {module_name}")
-        print("-" * 40)
-        print(f"函数已注册: {'是' if info['has_function'] else '否'}")
-        print(f"参数解析器已注册: {'是' if info['has_args'] else '否'}")
-        print(f"完整性: {'完整' if validate_module(module_name) else '不完整'}")
+        print("-" * 50)
         
+        # 创建美化表格
+        table = BeautifulTable()
+        table.columns.header = ["属性", "状态"]
+        
+        # 添加表格数据
+        table.rows.append(["函数已注册", "✓ 是" if info['has_function'] else "✗ 否"])
+        table.rows.append(["参数解析器已注册", "✓ 是" if info['has_args'] else "✗ 否"])
+        table.rows.append(["包含 start.sh", "✓ 是" if info['has_start_sh'] else "✗ 否"])
+        table.rows.append(["模块完整性", "✓ 完整" if validate_module(module_name) else "✗ 不完整"])
+        
+        # 配置文件信息
         config_path = self.config_handler.get_default_config_path(module_name)
         config_exists = os.path.exists(config_path)
-        print(f"默认配置文件: {config_path}")
-        print(f"配置文件存在: {'是' if config_exists else '否'}")
+        table.rows.append(["配置文件存在", "✓ 是" if config_exists else "✗ 否"])
+        
+        # 设置表格样式
+        table.set_style(BeautifulTable.STYLE_GRID)
+        table.columns.alignment['属性'] = BeautifulTable.ALIGN_LEFT
+        table.columns.alignment['状态'] = BeautifulTable.ALIGN_CENTER
+        
+        print(table)
+        print(f"\n配置文件路径: {config_path}")
+        
+        if info['has_start_sh']:
+            start_sh_path = get_module_start_sh_path(module_name)
+            print(f"start.sh 路径: {start_sh_path}")
+            print("使用命令: gtools {} start".format(module_name))
+    
+    def handle_module_start(self, module_name: str, args: List[str] = None):
+        """处理模块的 start 命令"""
+        if args is None:
+            args = []
+        success = execute_start_sh(module_name, args)
+        if not success:
+            sys.exit(1)
     
     def run_module(self, module_name: str, args: List[str]):
         """运行指定的模块"""
@@ -169,14 +225,37 @@ class CLI:
             parser.print_help()
             return
         
-        if argv[0] == 'list':
-            self.handle_list_command()
+        # 检查是否是帮助命令
+        if argv[0] in ['-h', '--help']:
+            parser = self.create_main_parser()
+            parser.print_help()
             return
         
-        if argv[0] == 'info' and len(argv) >= 2:
-            self.handle_info_command(argv[1])
+        # 检查是否是子命令格式 (list, info)
+        if len(argv) >= 1 and argv[0] in ['list', 'info']:
+            parser = self.create_main_parser()
+            try:
+                args = parser.parse_args(argv)
+                
+                if args.command == 'list':
+                    self.handle_list_command()
+                    return
+                
+                if args.command == 'info':
+                    self.handle_info_command(args.module_name)
+                    return
+            except SystemExit:
+                # argparse 会在遇到错误时调用 sys.exit，我们需要捕获它
+                sys.exit(1)
+        
+        # 检查是否是 gtools <module_name> start [args...] 格式
+        if len(argv) >= 2 and argv[1] == 'start':
+            module_name = argv[0]
+            start_args = argv[2:]  # start 后面的所有参数
+            self.handle_module_start(module_name, start_args)
             return
         
+        # 如果不是已知的子命令，则作为模块名处理
         module_name = argv[0]
         module_args = argv[1:]
         

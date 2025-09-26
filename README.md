@@ -7,6 +7,7 @@
 - **装饰器注册**: 使用装饰器轻松注册功能函数和参数解析器
 - **智能配置**: 支持 JSON 配置文件与命令行参数的智能合并
 - **模块化架构**: 每个功能作为独立模块，便于管理和扩展
+- **启动脚本支持**: 支持在模块中添加 start.sh 脚本进行自定义启动
 - **自动发现**: 自动扫描和加载 `functions/` 目录下的模块
 - **模块生命周期**: 内置 `create` 和 `remove` 命令管理模块
 - **位置参数支持**: 配置文件支持 `_positional_args` 字段处理位置参数
@@ -36,6 +37,12 @@ gtools calculator
 # 覆盖参数运行模块
 gtools calculator 10 20 --operation multiply
 
+# 执行模块的启动脚本（如果存在 start.sh）
+gtools calculator start
+
+# 执行模块的启动脚本并传递参数
+gtools calculator start 100 200 300
+
 # 查看模块帮助
 gtools calculator -h
 ```
@@ -51,9 +58,11 @@ gtool_registry_version/
 │   └── cli.py                # 命令行接口实现
 ├── functions/                 # 功能模块目录
 │   ├── calculator/           # 计算器模块
-│   │   └── main.py
+│   │   ├── main.py          # 模块主文件
+│   │   └── start.sh         # 启动脚本（可选）
 │   ├── test_module/          # 测试模块
-│   │   └── main.py
+│   │   ├── main.py          # 模块主文件
+│   │   └── start.sh         # 启动脚本（可选）
 │   ├── create/               # 模块创建工具
 │   │   ├── main.py
 │   │   └── reference/        # 模板文件
@@ -88,7 +97,15 @@ gtools list
 # 运行新创建的模块
 gtools my_awesome_tool --help
 gtools my_awesome_tool --debug
+
+# 执行自动生成的启动脚本
+gtools my_awesome_tool start
 ```
+
+创建模块时会自动生成：
+- `main.py` - 模块主文件
+- `default.json` - 配置文件  
+- `start.sh` - 启动脚本模板（包含参数处理示例）
 
 ### 手动创建
 
@@ -115,7 +132,22 @@ def parse_args():
     return parser
 ```
 
+## 🚀 启动脚本支持
+
+模块可以包含可选的 `start.sh` 启动脚本，用于自定义启动逻辑。
+
+```bash
+# 执行模块的启动脚本
+gtools my_module start
+
+# 传递参数给启动脚本
+gtools my_module start param1 param2
+```
+
+脚本会在模块目录中执行，接收传递的所有参数。你可以在脚本中定义任何你需要的逻辑。
+
 ## 📝 配置文件系统
+
 
 ### 基本配置
 
@@ -178,6 +210,12 @@ gtools calculator 10 20 30 --operation multiply
 
 # 查看详细信息
 gtools calculator 5 10 15 --operation average --show-details
+
+# 使用启动脚本执行
+gtools calculator start
+
+# 使用启动脚本并传递数字参数
+gtools calculator start 100 200 300
 ```
 
 ### Test Module 模块
