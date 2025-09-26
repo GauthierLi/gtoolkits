@@ -36,4 +36,3 @@ echo "模块路径: $(pwd)"
 # - 调用 Python 模块
 
 echo "✅ {MODULE_NAME} 模块启动完成！"
-echo "提示: 使用 'gtools {MODULE_NAME} --help' 查看模块功能"

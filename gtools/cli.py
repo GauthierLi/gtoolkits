@@ -119,7 +119,10 @@ class CLI:
         table.columns.alignment['状态'] = BeautifulTable.ALIGN_CENTER
         
         print(table)
-        print(f"\n配置文件路径: {config_path}")
+        
+        # 显示配置文件信息
+        if config_exists:
+            print(f"\n配置文件路径: {config_path}")
         
         if info['has_start_sh']:
             start_sh_path = get_module_start_sh_path(module_name)

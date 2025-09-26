@@ -182,13 +182,6 @@ def execute_start_sh(module_name: str, args: List[str] = None) -> bool:
     module_dir = os.path.dirname(start_sh_path)
     
     try:
-        if args:
-            print(f"🚀 执行模块 '{module_name}' 的 start.sh 脚本，参数: {' '.join(args)}")
-        else:
-            print(f"🚀 执行模块 '{module_name}' 的 start.sh 脚本...")
-        print(f"工作目录: {module_dir}")
-        print("-" * 50)
-        
         # 构建命令，将参数传递给脚本
         command = [start_sh_path] + args
         
@@ -200,9 +193,7 @@ def execute_start_sh(module_name: str, args: List[str] = None) -> bool:
             text=True
         )
         
-        print("-" * 50)
         if result.returncode == 0:
-            print(f"✓ 脚本执行成功")
             return True
         else:
             print(f"✗ 脚本执行失败，退出码: {result.returncode}")
