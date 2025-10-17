@@ -1,0 +1,54 @@
+{
+  "working_directory": "/Users/liweikang/Code/gtool_registry_version",
+  "modules": [
+    {
+      "module_name": "calculator",
+      "name": "calculator6",
+      "params": {
+        "operation": "average",
+        "show_details": true,
+        "_positional_args": {
+          "numbers": [
+            1.0,
+            2.0,
+            80.0
+          ]
+        }
+      },
+      "depends_on": [
+        "calculator2"
+      ]
+    },
+    {
+      "module_name": "mark_imgs",
+      "name": "mark_imgs",
+      "params": {
+        "folder": "",
+        "max_depth": 3,
+        "read_online": false,
+        "sp_name": "",
+        "baglist_specify": "",
+        "camera": "1",
+        "mark_type": "images",
+        "big": false
+      },
+      "depends_on": []
+    },
+    {
+      "module_name": "calculator",
+      "name": "calculator2",
+      "params": {
+        "operation": "average",
+        "show_details": true,
+        "_positional_args": {
+          "numbers": [
+            1.0,
+            2.0,
+            3.0
+          ]
+        }
+      },
+      "depends_on": []
+    }
+  ]
+}

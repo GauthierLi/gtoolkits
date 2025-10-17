@@ -99,23 +99,25 @@ def check_available_tools() -> List[str]:
     return tools
 
 
-def run_pylint_check(file_path: str, min_score: float = 8.0, disable_checks=None, config_file=None) -> bool:
+def run_pylint_check(
+    file_path: str, min_score: float = 8.0, disable_checks=None, config_file=None
+) -> bool:
     """运行 pylint 检查"""
     try:
         tool_path = get_tool_path("pylint")
-        
+
         # 构建 pylint 命令
         cmd = [tool_path, file_path, "--score=yes"]
-        
+
         # 添加禁用检查项
         if disable_checks:
             disable_str = ",".join(disable_checks)
             cmd.extend(["--disable", disable_str])
-        
+
         # 添加配置文件
         if config_file and os.path.exists(config_file):
             cmd.extend(["--rcfile", config_file])
-        
+
         result = subprocess.run(cmd, capture_output=True, text=True)
 
         # 提取评分
@@ -145,7 +147,9 @@ def run_pylint_check(file_path: str, min_score: float = 8.0, disable_checks=None
                         elif any(
                             x in line for x in ["W0611", "W1309", "R0903", "R0913"]
                         ):  # 质量相关
-                            if disable_checks and any(check in line for check in disable_checks):
+                            if disable_checks and any(
+                                check in line for check in disable_checks
+                            ):
                                 disabled_issues.append(line.strip())
                             else:
                                 quality_issues.append(line.strip())
@@ -165,7 +169,9 @@ def run_pylint_check(file_path: str, min_score: float = 8.0, disable_checks=None
                 else:
                     print(f"  ✅ Pylint 评分: {score}/10")
                     if disable_checks:
-                        print(f"    🔕 已禁用检查: {', '.join(disable_checks[:3])}{'...' if len(disable_checks) > 3 else ''}")
+                        print(
+                            f"    🔕 已禁用检查: {', '.join(disable_checks[:3])}{'...' if len(disable_checks) > 3 else ''}"
+                        )
 
         return False
     except Exception as e:
@@ -279,10 +285,7 @@ def run_check_only(
 
         if "pylint" in available_tools and args.use_pylint:
             issues_found |= run_pylint_check(
-                file_path, 
-                args.pylint_score, 
-                args.pylint_disable,
-                args.pylint_config
+                file_path, args.pylint_score, args.pylint_disable, args.pylint_config
             )
 
         if "black" in available_tools and args.use_black:
@@ -323,10 +326,7 @@ def run_format(files: List[str], available_tools: List[str], args: argparse.Name
         # 运行 pylint 检查（如果启用）
         if "pylint" in available_tools and args.use_pylint and not args.no_pylint_after:
             run_pylint_check(
-                file_path, 
-                args.pylint_score,
-                args.pylint_disable,
-                args.pylint_config
+                file_path, args.pylint_score, args.pylint_disable, args.pylint_config
             )
 
         if file_changed:
@@ -479,18 +479,19 @@ def parse_args():
     parser.add_argument(
         "--no-pylint-after", action="store_true", help="格式化后不运行 pylint 检查"
     )
-    
+
     parser.add_argument(
-        '--pylint-disable',
-        nargs='*',
-        default=['unused-import', 'f-string-without-interpolation', 'too-few-public-methods', 'too-many-arguments'],
-        help='要禁用的 pylint 检查项（默认禁用常见的不重要警告）'
+        "--pylint-disable",
+        nargs="*",
+        default=[
+            "unused-import",
+            "f-string-without-interpolation",
+            "too-few-public-methods",
+            "too-many-arguments",
+        ],
+        help="要禁用的 pylint 检查项（默认禁用常见的不重要警告）",
     )
-    
-    parser.add_argument(
-        '--pylint-config',
-        type=str,
-        help='自定义 pylint 配置文件路径'
-    )
+
+    parser.add_argument("--pylint-config", type=str, help="自定义 pylint 配置文件路径")
 
     return parser

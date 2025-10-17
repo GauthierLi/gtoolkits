@@ -5,6 +5,7 @@ import sys
 import os
 import argparse
 import traceback
+import json
 from typing import List, Optional
 from beautifultable import BeautifulTable
 
@@ -51,6 +52,9 @@ class CLI:
         
         info_parser = subparsers.add_parser('info', help='显示模块详细信息')
         info_parser.add_argument('module_name', help='模块名称')
+        
+        run_parser = subparsers.add_parser('run', help='运行配置文件指定的模块管道')
+        run_parser.add_argument('--config', required=True, help='配置文件路径')
         
         return parser
     
@@ -128,6 +132,169 @@ class CLI:
             start_sh_path = get_module_start_sh_path(module_name)
             print(f"start.sh 路径: {start_sh_path}")
             print("使用命令: gtools {} start".format(module_name))
+    
+    def build_execution_order(self, modules: List[dict]) -> List[str]:
+        """构建模块执行顺序，支持依赖关系"""
+        from collections import defaultdict, deque
+        
+        # 检查是否有依赖
+        has_dependencies = any('depends_on' in module for module in modules)
+        if not has_dependencies:
+            # 无依赖，按配置顺序执行
+            return [m['name'] for m in modules]
+        
+        # 构建图
+        graph = defaultdict(list)  # module -> list of modules that depend on it
+        in_degree = defaultdict(int)
+        module_names = [m['name'] for m in modules]
+        
+        for module in modules:
+            name = module['name']
+            in_degree[name] = 0  # 初始化
+        
+        for module in modules:
+            name = module['name']
+            if 'depends_on' in module:
+                for dep in module['depends_on']:
+                    if dep not in module_names:
+                        raise ValueError(f"模块 '{name}' 的依赖 '{dep}' 不存在")
+                    graph[dep].append(name)
+                    in_degree[name] += 1
+        
+        # 拓扑排序
+        queue = deque([name for name in module_names if in_degree[name] == 0])
+        execution_order = []
+        
+        while queue:
+            current = queue.popleft()
+            execution_order.append(current)
+            
+            for dependent in graph[current]:
+                in_degree[dependent] -= 1
+                if in_degree[dependent] == 0:
+                    queue.append(dependent)
+        
+        if len(execution_order) != len(module_names):
+            raise ValueError("模块依赖关系存在环，无法确定执行顺序")
+        
+        return execution_order
+    
+    def handle_run_command(self, config_path: str):
+        """处理 run 命令"""
+        if not os.path.exists(config_path):
+            print(f"错误: 配置文件 '{config_path}' 不存在")
+            sys.exit(1)
+        
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+        except json.JSONDecodeError as e:
+            print(f"错误: 配置文件 JSON 格式错误: {e}")
+            sys.exit(1)
+        
+        # 验证配置
+        if 'working_directory' not in config:
+            print("错误: 配置中缺少 'working_directory'")
+            sys.exit(1)
+        
+        working_dir = config['working_directory']
+        if not os.path.exists(working_dir):
+            print(f"错误: 工作目录 '{working_dir}' 不存在")
+            sys.exit(1)
+        
+        if 'modules' not in config or not isinstance(config['modules'], list):
+            print("错误: 配置中缺少 'modules' 列表")
+            sys.exit(1)
+        
+        modules = config['modules']
+        if not modules:
+            print("错误: modules 列表为空")
+            sys.exit(1)
+        
+        # 验证模块
+        for module in modules:
+            if 'name' not in module:
+                print(f"错误: 模块配置缺少 'name': {module}")
+                sys.exit(1)
+            name = module['name']
+            if not FUNCTION.has(name):
+                print(f"错误: 模块 '{name}' 未注册")
+                sys.exit(1)
+        
+        # 检查依赖（简单检查，无环）
+        module_names = [m['name'] for m in modules]
+        for module in modules:
+            if 'depends_on' in module:
+                for dep in module['depends_on']:
+                    if dep not in module_names:
+                        print(f"错误: 模块 '{module['name']}' 的依赖 '{dep}' 不存在")
+                        sys.exit(1)
+        
+        # 检查依赖（构建DAG并拓扑排序）
+        execution_order = self.build_execution_order(modules)
+        
+        # 切换到工作目录
+        original_dir = os.getcwd()
+        os.chdir(working_dir)
+        
+        try:
+            print(f"切换到工作目录: {working_dir}")
+            print("开始执行模块管道...")
+            
+            for i, module_name in enumerate(execution_order, 1):
+                module = next(m for m in modules if m['name'] == module_name)
+                params = module.get('params', {})
+                
+                print(f"\n[{i}/{len(execution_order)}] 执行模块: {module_name}")
+                
+                # 构建参数
+                main_func = FUNCTION.get(module_name)
+                args_parser_func = ARGS.get(module_name)
+                
+                temp_parser = args_parser_func()
+                synthetic_args = []
+                
+                # 处理位置参数
+                positional_config = params.get('_positional_args', {})
+                for param_name, param_value in positional_config.items():
+                    if isinstance(param_value, list):
+                        synthetic_args.extend(map(str, param_value))
+                    else:
+                        synthetic_args.append(str(param_value))
+                
+                # 处理可选参数
+                for key, value in params.items():
+                    if key == '_positional_args':
+                        continue
+                    
+                    # 查找对应的 action 来确定如何构建参数
+                    for action in temp_parser._actions:
+                        if action.dest == key and action.option_strings:
+                            if isinstance(action, argparse._StoreTrueAction) and value:
+                                synthetic_args.append(action.option_strings[0])
+                            elif not isinstance(action, argparse._StoreTrueAction):
+                                synthetic_args.extend([action.option_strings[0], str(value)])
+                            break
+                
+                # 解析参数
+                if synthetic_args:
+                    parsed_args = temp_parser.parse_args(synthetic_args)
+                else:
+                    parsed_args = temp_parser.parse_args([])
+                
+                # 执行模块
+                main_func(parsed_args)
+                
+                print(f"模块 '{module_name}' 执行完成")
+            
+            print("\n✅ 所有模块执行完成")
+            
+        except Exception as e:
+            print(f"\n❌ 执行过程中出错: {e}")
+            traceback.print_exc()
+            sys.exit(1)
+        finally:
+            os.chdir(original_dir)
     
     def handle_module_start(self, module_name: str, args: List[str] = None):
         """处理模块的 start 命令"""
@@ -240,8 +407,8 @@ class CLI:
             parser.print_help()
             return
         
-        # 检查是否是子命令格式 (list, info)
-        if len(argv) >= 1 and argv[0] in ['list', 'info']:
+        # 检查是否是子命令格式 (list, info, run)
+        if len(argv) >= 1 and argv[0] in ['list', 'info', 'run']:
             parser = self.create_main_parser()
             try:
                 args = parser.parse_args(argv)
@@ -252,6 +419,10 @@ class CLI:
                 
                 if args.command == 'info':
                     self.handle_info_command(args.module_name)
+                    return
+                
+                if args.command == 'run':
+                    self.handle_run_command(args.config)
                     return
             except SystemExit:
                 # argparse 会在遇到错误时调用 sys.exit，我们需要捕获它
