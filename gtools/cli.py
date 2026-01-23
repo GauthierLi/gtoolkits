@@ -6,7 +6,7 @@ import os
 import argparse
 import traceback
 import json
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from beautifultable import BeautifulTable
 
 from .registry import (
@@ -42,6 +42,9 @@ class CLI:
   gtools module_name start                 # 执行模块的start.sh脚本
   gtools module_name start arg1 arg2       # 执行模块的start.sh脚本并传递参数
   gtools list                             # 列出所有可用模块
+  gtools run --config config.json                   # 运行管道配置文件
+  gtools run --module-config config.json            # 运行单模块配置文件
+  gtools run --module-config config.json --option operation=multiply  # 覆盖配置参数
   gtools info module_name                 # 显示模块详细信息
             """.strip()
         )
@@ -53,8 +56,10 @@ class CLI:
         info_parser = subparsers.add_parser('info', help='显示模块详细信息')
         info_parser.add_argument('module_name', help='模块名称')
         
-        run_parser = subparsers.add_parser('run', help='运行配置文件指定的模块管道')
-        run_parser.add_argument('--config', required=True, help='配置文件路径')
+        run_parser = subparsers.add_parser('run', help='运行配置文件指定的模块')
+        run_parser.add_argument('--config', required=False, help='管道配置文件路径（用于多模块管道）')
+        run_parser.add_argument('--module-config', required=False, help='单模块配置文件路径（用于启动单个模块）')
+        run_parser.add_argument('--option', required=False, nargs='+', help='覆盖配置文件中的参数，格式：key=value，支持多个参数')
         
         return parser
     
@@ -178,9 +183,234 @@ class CLI:
             raise ValueError("模块依赖关系存在环，无法确定执行顺序")
         
         return execution_order
-    
-    def handle_run_command(self, config_path: str):
+
+    def handle_run_command(self, config_path: str = None, module_config_path: str = None, options: List[str] = None):
         """处理 run 命令"""
+        # 参数验证
+        if config_path and module_config_path:
+            print("错误: 不能同时使用 --config 和 --module-config，请选择其中一个")
+            sys.exit(1)
+        
+        if not config_path and not module_config_path:
+            print("错误: 必须提供 --config 或 --module-config 参数")
+            sys.exit(1)
+        
+        # --option 只能与 --module-config 一起使用
+        if options and config_path:
+            print("警告: --option 参数只能与 --module-config 一起使用，将被忽略")
+        
+        # 根据参数类型调用不同的处理逻辑
+        if module_config_path:
+            self.handle_module_config_command(module_config_path, options)
+        else:
+            self.handle_pipeline_command(config_path)
+
+    def parse_options(self, options: List[str]) -> Dict[str, Any]:
+        """解析 --option 参数，返回参数字典
+        
+        支持格式：
+        - key=value
+        - _positional_args.numbers=[1,2,3]
+        - debug=true
+        - name="Alice Smith"
+        """
+        result = {}
+        
+        for opt in options:
+            if '=' not in opt:
+                print(f"警告: 忽略格式错误的参数 '{opt}'，应为 key=value 格式")
+                continue
+            
+            key, value = opt.split('=', 1)
+            key = key.strip()
+            value = value.strip()
+            
+            # 尝试解析值类型
+            parsed_value = self._parse_option_value(value)
+            
+            # 处理嵌套键（如 _positional_args.numbers）
+            if '.' in key:
+                keys = key.split('.')
+                current = result
+                for k in keys[:-1]:
+                    if k not in current:
+                        current[k] = {}
+                    current = current[k]
+                current[keys[-1]] = parsed_value
+            else:
+                result[key] = parsed_value
+        
+        return result
+
+    def _parse_option_value(self, value: str) -> Any:
+        """解析参数值的类型
+        
+        支持类型：
+        - 布尔值: true, false (不区分大小写)
+        - 整数: 123, -456
+        - 浮点数: 3.14, -0.5
+        - 列表: [1,2,3], ["a","b"]
+        - 字符串: 其他所有情况
+        """
+        # 尝试解析为布尔值
+        if value.lower() == 'true':
+            return True
+        if value.lower() == 'false':
+            return False
+        
+        # 尝试解析为列表
+        if value.startswith('[') and value.endswith(']'):
+            try:
+                import ast
+                return ast.literal_eval(value)
+            except (ValueError, SyntaxError):
+                # 如果解析失败，返回原始字符串
+                return value
+        
+        # 尝试解析为整数
+        try:
+            return int(value)
+        except ValueError:
+            pass
+        
+        # 尝试解析为浮点数
+        try:
+            return float(value)
+        except ValueError:
+            pass
+        
+        # 返回字符串（去除引号）
+        if (value.startswith('"') and value.endswith('"')) or \
+           (value.startswith('"') and value.endswith('"')):
+            return value[1:-1]
+        
+        return value
+        
+
+    def merge_options(self, config: Dict[str, Any], options: Dict[str, Any]) -> Dict[str, Any]:
+        """将 --option 参数合并到配置中，--option 参数优先级更高
+        
+        Args:
+            config: 原始配置字典
+            options: 解析后的选项字典
+        
+        Returns:
+            合并后的配置字典
+        """
+        result = config.copy()
+        
+        # 深度合并
+        for key, value in options.items():
+            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                # 递归合并字典
+                result[key] = self.merge_options(result[key], value)
+            else:
+                # 直接覆盖或添加
+                result[key] = value
+        
+        return result
+
+    def handle_module_config_command(self, config_path: str, options: List[str] = None):
+        """处理单模块配置启动命令"""
+        if not os.path.exists(config_path):
+            print(f"错误: 配置文件 '{config_path}' 不存在")
+            sys.exit(1)
+        
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+        except json.JSONDecodeError as e:
+            print(f"错误: 配置文件 JSON 格式错误: {e}")
+            sys.exit(1)
+        
+        # 解析 --option 参数
+        if options:
+            parsed_options = self.parse_options(options)
+            config = self.merge_options(config, parsed_options)
+            print(f"应用参数覆盖: {parsed_options}")
+        
+        # 从配置文件路径推断模块名
+        # 支持路径格式：
+        # - configs/module_name/default.json -> module_name
+        # - configs/module_name/xxx.json -> module_name
+        # - /absolute/path/to/configs/module_name/xxx.json -> module_name
+        config_dir = os.path.dirname(config_path)
+        module_name = os.path.basename(config_dir)
+        
+        # 如果配置文件不在 configs/module_name/ 目录下，尝试从文件名推断
+        if module_name == 'configs':
+            # 路径可能是 configs/xxx.json
+            module_name = os.path.splitext(os.path.basename(config_path))[0]
+        
+        # 验证模块是否已注册
+        if not FUNCTION.has(module_name):
+            print(f"错误: 模块 '{module_name}' 未注册")
+            sys.exit(1)
+        
+        if not ARGS.has(module_name):
+            print(f"错误: 模块 '{module_name}' 缺少参数解析器")
+            sys.exit(1)
+        
+        print(f"运行模块: {module_name}")
+        print(f"配置文件: {config_path}")
+        
+        # 获取模块函数和参数解析器
+        main_func = FUNCTION.get(module_name)
+        args_parser_func = ARGS.get(module_name)
+        
+        try:
+            temp_parser = args_parser_func()
+            
+            # 构建参数
+            synthetic_args = []
+            
+            # 处理位置参数
+            positional_config = config.get('_positional_args', {})
+            for param_name, param_value in positional_config.items():
+                if isinstance(param_value, list):
+                    synthetic_args.extend(map(str, param_value))
+                else:
+                    synthetic_args.append(str(param_value))
+            
+            # 处理可选参数
+            for key, value in config.items():
+                if key == '_positional_args':
+                    continue
+                
+                # 查找对应的 action 来确定如何构建参数
+                for action in temp_parser._actions:
+                    if action.dest == key and action.option_strings:
+                        if isinstance(action, argparse._StoreTrueAction) and value:
+                            synthetic_args.append(action.option_strings[0])
+                        elif not isinstance(action, argparse._StoreTrueAction):
+                            synthetic_args.extend([action.option_strings[0], str(value)])
+                        break
+            
+            # 解析参数
+            if synthetic_args:
+                parsed_args = temp_parser.parse_args(synthetic_args)
+            else:
+                parsed_args = temp_parser.parse_args([])
+            
+            # 执行模块
+            main_func(parsed_args)
+            print(f"✅ 模块 '{module_name}' 执行完成")
+            
+        except Exception as e:
+            print(f"\n❌ 执行模块 '{module_name}' 时出错:")
+            print(f"错误信息: {e}")
+            print("\n详细错误追踪:")
+            traceback.print_exc()
+            print("-" * 50)
+            sys.exit(1)
+
+
+        # 返回字符串（去除引号）
+
+
+    
+    def handle_pipeline_command(self, config_path: str):
+        """处理管道配置文件命令（原有逻辑）"""
         if not os.path.exists(config_path):
             print(f"错误: 配置文件 '{config_path}' 不存在")
             sys.exit(1)
@@ -422,7 +652,7 @@ class CLI:
                     return
                 
                 if args.command == 'run':
-                    self.handle_run_command(args.config)
+                    self.handle_run_command(args.config, args.module_config, args.option)
                     return
             except SystemExit:
                 # argparse 会在遇到错误时调用 sys.exit，我们需要捕获它

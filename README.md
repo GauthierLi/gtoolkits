@@ -13,6 +13,8 @@
 - **位置参数支持**: 配置文件支持 `_positional_args` 字段处理位置参数
 - **命令行友好**: 完整的 CLI 界面和帮助系统
 - **模块管道支持**: 通过配置文件定义模块执行顺序和参数，实现自动化管道执行
+- **单模块配置启动**: 支持通过配置文件启动单个模块，无需复杂管道配置
+- **参数动态覆盖**: 支持启动时覆盖配置文件参数，提供更高的灵活性
 - **可视化界面**: 基于 Streamlit 的图形化节点构建器，支持拖拽式流程设计
 - **依赖关系管理**: 可视化配置模块间的依赖关系，支持拓扑排序执行
 - **实时执行监控**: 内置执行终端，支持实时查看全局日志和各节点日志
@@ -49,6 +51,12 @@ gtools calculator start
 
 # 运行模块管道（按配置文件顺序执行多个模块）
 gtools run --config system_config/config.json
+
+# 使用配置文件启动单个模块
+gtools run --module-config configs/calculator/default.json
+
+# 使用配置文件启动模块并覆盖参数
+gtools run --module-config configs/calculator/default.json --option operation=multiply
 
 # 查看模块帮助
 gtools calculator -h
@@ -246,6 +254,62 @@ gtools run --config system_config/config.json
 3. 按顺序执行每个模块
 4. 每个模块使用配置的参数运行
 5. 输出执行结果和日志
+
+### 单模块配置启动
+
+除了管道执行，系统还支持通过配置文件启动单个模块，无需创建复杂的管道配置。
+
+#### 基本使用
+
+```bash
+# 使用模块默认配置文件
+gtools run --module-config configs/calculator/default.json
+
+# 使用自定义配置文件
+gtools run --module-config configs/calculator/my_config.json
+
+# 使用绝对路径
+gtools run --module-config /home/user/gtools_rv/configs/calculator/custom.json
+```
+
+#### 参数覆盖
+
+可以在启动时使用 `--option` 参数覆盖配置文件中的参数：
+
+```bash
+# 覆盖单个参数
+gtools run --module-config configs/calculator/default.json --option operation=multiply
+
+# 覆盖多个参数
+gtools run --module-config configs/calculator/default.json --option operation=multiply show_details=true
+
+# 覆盖位置参数
+gtools run --module-config configs/calculator/default.json --option "_positional_args.numbers=[100,200,300]"
+
+# 混合覆盖
+gtools run --module-config configs/calculator/default.json --option "_positional_args.numbers=[10,20,30]" operation=multiply show_details=true
+```
+
+#### 配置文件示例
+
+单模块配置文件格式与模块默认配置格式保持一致：
+
+```json
+{
+  "_positional_args": {
+    "numbers": [10, 20, 30]
+  },
+  "operation": "add",
+  "show_details": false
+}
+```
+
+特性支持：
+- `--option` 参数优先级高于配置文件参数
+- 智能类型推断：布尔值、整数、浮点数、列表、字符串
+- 嵌套键支持：如 `_positional_args.numbers`
+- 参数验证：互斥检查，防止错误使用
+
 
 ### 管道配置说明
 
