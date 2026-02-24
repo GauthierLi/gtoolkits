@@ -392,6 +392,44 @@ gtools remove my_module --force
 
 ## 🌈 内置示例
 
+### backup_openclaw_memory 模块 🐱
+
+OpenClaw 代理记忆备份与恢复工具，支持跨设备迁移。
+
+```bash
+# 创建备份
+gtools backup_openclaw_memory backup
+
+# 自定义备份名称
+gtools backup_openclaw_memory backup --name my_backup_2024
+
+# 备份整个工作区
+gtools backup_openclaw_memory backup --full
+
+# 列出所有备份
+gtools backup_openclaw_memory list
+
+# 恢复备份
+gtools backup_openclaw_memory restore /path/to/backup.tar.gz
+
+# 预览恢复（不实际恢复）
+gtools backup_openclaw_memory restore /path/to/backup.tar.gz --dry-run
+
+# 删除备份
+gtools backup_openclaw_memory delete backup_name
+
+# 使用启动脚本
+gtools backup_openclaw_memory start
+
+# 独立运行（无需 gtools）
+python3 functions/backup_openclaw_memory/backup_openclaw_memory.py backup
+```
+
+**跨设备迁移流程：**
+1. 旧设备：`gtools backup_openclaw_memory backup --name migration`
+2. 复制备份文件到新设备：`scp ~/.openclaw/backups/migration.tar.gz new-device:~/.openclaw/backups/`
+3. 新设备：`gtools backup_openclaw_memory restore ~/.openclaw/backups/migration.tar.gz`
+
 ### Calculator 模块
 ```bash
 # 使用默认配置（加法）
@@ -420,6 +458,53 @@ gtools test_module --verbose --dry-run
 
 # 指定处理项目
 gtools test_module --items item1 item2 item3
+```
+
+### Backup OpenClaw Memory 模块 🐱
+
+备份和恢复 OpenClaw 代理的记忆文件，支持跨设备迁移。
+
+```bash
+# 创建备份
+gtools backup_openclaw_memory backup
+
+# 自定义备份名称
+gtools backup_openclaw_memory backup --name my_backup
+
+# 备份整个工作区
+gtools backup_openclaw_memory backup --full
+
+# 列出所有备份
+gtools backup_openclaw_memory list
+
+# 从备份恢复
+gtools backup_openclaw_memory restore /path/to/backup.tar.gz
+
+# 预览恢复（不实际恢复）
+gtools backup_openclaw_memory restore /path/to/backup.tar.gz --dry-run
+
+# 删除备份
+gtools backup_openclaw_memory delete backup_name
+
+# 使用启动脚本
+gtools backup_openclaw_memory start backup --name my_backup
+gtools backup_openclaw_memory start list
+```
+
+**Python API:**
+```python
+from functions.backup_openclaw_memory.main import OpenClawMemoryBackup
+
+backup_mgr = OpenClawMemoryBackup()
+
+# 创建备份
+backup_path = backup_mgr.backup(backup_name="my_backup")
+
+# 恢复备份
+result = backup_mgr.restore("/path/to/backup.tar.gz")
+
+# 列出备份
+backups = backup_mgr.list_backups()
 ```
 
 ### 可视化界面示例
