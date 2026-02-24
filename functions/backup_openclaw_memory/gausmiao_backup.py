@@ -6,7 +6,11 @@ GausMiao's Personal Backup Configuration
 
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Add project root to path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
+sys.path.insert(0, project_root)
 
 from functions.backup_openclaw_memory.main import OpenClawMemoryBackup
 import json
