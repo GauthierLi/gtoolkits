@@ -306,7 +306,9 @@ def main(args: argparse.Namespace):
         else:
             for i, backup in enumerate(backups, 1):
                 exists = "✓" if backup.get("exists") else "✗"
-                print(f"\n  [{i}] {exists} {Path(backup.get('backup_file', 'N/A')).name}")
+                backup_file = backup.get('backup_file', 'N/A')
+                print(f"\n  [{i}] {exists} {Path(backup_file).name}")
+                print(f"      Path: {backup_file}")
                 print(f"      Type: {backup.get('backup_type', 'N/A')}")
                 print(f"      Time: {backup.get('timestamp', 'N/A')}")
                 print(f"      Size: {backup.get('size_mb', 0)} MB")
