@@ -7,6 +7,7 @@ import argparse
 import ast
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -24,12 +25,12 @@ def main(args: argparse.Namespace):
 
     if not module_dir.exists():
         print(f"❌ 模块 '{module_name}' 不存在！")
-        print(f"路径: {module_dir}")
+        print(f"路径：{module_dir}")
         return
 
     module_file = module_dir / "main.py"
     if not module_file.exists():
-        print(f"❌ 模块文件不存在: {module_file}")
+        print(f"❌ 模块文件不存在：{module_file}")
         return
 
     print(f"🔄 开始更新模块 '{module_name}' 的配置...")
@@ -56,7 +57,7 @@ def main(args: argparse.Namespace):
                     existing_config = json.load(f)
                 print(f"📄 发现已存在的配置文件，将进行智能合并...")
             except Exception as e:
-                print(f"⚠️  读取现有配置失败: {e}")
+                print(f"⚠️  读取现有配置失败：{e}")
 
         # 合并配置
         final_config = merge_configs(existing_config, config_data)
@@ -65,17 +66,78 @@ def main(args: argparse.Namespace):
         with open(config_file, "w", encoding="utf-8") as f:
             json.dump(final_config, f, ensure_ascii=False, indent=2)
 
-        print(f"✅ 配置文件已更新: {config_file}")
+        print(f"✅ 配置文件已更新：{config_file}")
 
         # 显示更新信息
         show_config_summary(final_config, module_name, args.verbose)
 
+        # 如果指定了 --skill 或模块中没有 SKILL.md，创建技能模板
+        if args.skill or args.auto_skill:
+            create_skill_template(module_dir, module_name, base_dir, args.verbose)
+
     except Exception as e:
-        print(f"❌ 更新配置时发生错误: {e}")
+        print(f"❌ 更新配置时发生错误：{e}")
         if args.verbose:
             import traceback
 
             traceback.print_exc()
+
+
+def create_skill_template(module_dir: Path, module_name: str, base_dir: Path, verbose: bool = False):
+    """创建或补充 SKILL.md 模板"""
+    skill_file = module_dir / "SKILL.md"
+    
+    if skill_file.exists():
+        print(f"ℹ️  SKILL.md 已存在，跳过创建")
+        return
+    
+    print(f"📦 检测到模块缺少 SKILL.md，正在创建技能模板...")
+    
+    try:
+        # 获取 create 模块的模板路径
+        create_template_dir = base_dir / "functions" / "create" / "reference"
+        template_skill = create_template_dir / "SKILL.md"
+        
+        if not template_skill.exists():
+            print(f"⚠️  警告：SKILL.md 模板文件不存在：{template_skill}")
+            return
+        
+        with open(template_skill, "r", encoding="utf-8") as f:
+            skill_content = f.read()
+
+        # 替换占位符
+        skill_content = replace_placeholders(skill_content, module_name)
+
+        with open(skill_file, "w", encoding="utf-8") as f:
+            f.write(skill_content)
+        
+        print(f"✅ 创建技能包模板：{skill_file}")
+        
+        if verbose:
+            print(f"\n🐱 技能包后续步骤:")
+            print(f"   1. 编辑 {skill_file} 完善技能描述")
+            print(f"   2. 参考 OpenClaw 技能包格式 (name, description 必填)")
+            print(f"   3. 可添加 scripts/, references/, assets/ 目录")
+            print(f"   4. 使用 OpenClaw 技能打包工具打包")
+    
+    except Exception as e:
+        print(f"⚠️  创建 SKILL.md 失败：{e}")
+
+
+def replace_placeholders(content: str, module_name: str) -> str:
+    """替换模板文件中的占位符"""
+    # 生成不同格式的模块名
+    module_name_title = module_name.replace("_", " ").title().replace(" ", "_")
+
+    replacements = {
+        "{MODULE_NAME}": module_name,
+        "{MODULE_NAME_TITLE}": module_name_title,
+    }
+
+    for placeholder, value in replacements.items():
+        content = content.replace(placeholder, value)
+
+    return content
 
 
 def parse_module_args(module_file: Path, module_name: str) -> Optional[Dict[str, Any]]:
@@ -103,7 +165,7 @@ def parse_module_args(module_file: Path, module_name: str) -> Optional[Dict[str,
         return config_data
 
     except Exception as e:
-        print(f"❌ 解析模块文件失败: {e}")
+        print(f"❌ 解析模块文件失败：{e}")
         return None
 
 
@@ -204,7 +266,7 @@ def extract_argument_info(call_node: ast.Call) -> Optional[tuple]:
         return dest_name, default_value, is_positional
 
     except Exception as e:
-        print(f"⚠️  提取参数信息失败: {e}")
+        print(f"⚠️  提取参数信息失败：{e}")
         return None
 
 
@@ -242,7 +304,7 @@ def merge_configs(existing: Dict[str, Any], new: Dict[str, Any]) -> Dict[str, An
             if type(existing_value) != type(value) and value is not None:
                 # 类型不匹配，提示用户
                 print(
-                    f"⚠️  参数 '{key}' 类型发生变化: {type(existing_value).__name__} -> {type(value).__name__}"
+                    f"⚠️  参数 '{key}' 类型发生变化：{type(existing_value).__name__} -> {type(value).__name__}"
                 )
 
     return result
@@ -257,18 +319,18 @@ def show_config_summary(
 
     if "_positional_args" in config:
         pos_args = config["_positional_args"]
-        print(f"📍 位置参数: {len(pos_args)} 个")
+        print(f"📍 位置参数：{len(pos_args)} 个")
         if verbose:
             for name, value in pos_args.items():
                 print(f"  • {name}: {value}")
 
     optional_args = {k: v for k, v in config.items() if k != "_positional_args"}
-    print(f"⚙️  可选参数: {len(optional_args)} 个")
+    print(f"⚙️  可选参数：{len(optional_args)} 个")
     if verbose:
         for name, value in optional_args.items():
             print(f"  • {name}: {value} ({type(value).__name__})")
 
-    print(f"\n💡 提示: 使用 gtools {module_name} 测试配置")
+    print(f"\n💡 提示：使用 gtools {module_name} 测试配置")
 
 
 @ARGS.regist(module_name="update")
@@ -282,6 +344,8 @@ def parse_args():
   gtools update my_module                # 更新模块配置
   gtools update my_module --force        # 强制覆盖现有配置
   gtools update my_module --verbose      # 显示详细信息
+  gtools update my_module --skill        # 同时创建 SKILL.md 模板（如果不存在）
+  gtools update my_module --auto-skill   # 自动检测并创建 SKILL.md（如果不存在）
         """.strip(),
     )
 
@@ -292,5 +356,15 @@ def parse_args():
     )
 
     parser.add_argument("--verbose", "-v", action="store_true", help="显示详细信息")
+
+    parser.add_argument(
+        "--skill", "-s", action="store_true", help="创建 SKILL.md 模板（如果不存在）"
+    )
+
+    parser.add_argument(
+        "--auto-skill",
+        action="store_true",
+        help="自动检测并创建 SKILL.md 模板（如果不存在）",
+    )
 
     return parser
