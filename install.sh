@@ -30,6 +30,33 @@ else
     exit 1
 fi
 
+# 询问是否安装 skill 到 OpenClaw
+echo ""
+read -p "是否安装 gtools skill 到 OpenClaw？(Y/n): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z "$REPLY" ]]; then
+    OPENCLAW_SKILLS_DIR="$HOME/.openclaw/workspace/skills"
+    
+    if [[ -d "$OPENCLAW_SKILLS_DIR" ]]; then
+        echo "找到 OpenClaw skills 目录：$OPENCLAW_SKILLS_DIR"
+        
+        # 复制 skill
+        SKILL_SRC="$PROJECT_DIR/skills/gtools"
+        SKILL_DEST="$OPENCLAW_SKILLS_DIR/gtools"
+        
+        if [[ -d "$SKILL_SRC" ]]; then
+            echo "正在复制 gtools skill..."
+            cp -r "$SKILL_SRC" "$SKILL_DEST"
+            echo "✓ gtools skill 已安装到：$SKILL_DEST"
+        else
+            echo "✗ 未找到 skill 源目录：$SKILL_SRC"
+        fi
+    else
+        echo "✗ 未找到 OpenClaw skills 目录：$OPENCLAW_SKILLS_DIR"
+        echo "请手动将 $PROJECT_DIR/skills/gtools 复制到 ~/.openclaw/workspace/skills/"
+    fi
+fi
+
 echo ""
 echo "安装完成！"
 echo ""

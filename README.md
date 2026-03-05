@@ -390,6 +390,109 @@ gtools remove my_module --force
 - `calculator` - 示例计算器
 - `test_module` - 示例测试模块
 
+## 🧠 Skills 系统
+
+GTools 提供 Skills 系统，让 AI 助手能够通过语义匹配智能调用模块。
+
+### 目录结构
+
+```
+gtools_rv/
+├── skills/                    # Skills 系统根目录
+│   └── gtools/
+│       ├── SKILL.md          # GTools skill 主文档（AI 使用指南）
+│       └── references/
+│           └── modules.md    # 模块语义映射表（关键词 → 模块名）
+└── functions/
+    └── <module>/
+        └── SKILL.md          # 模块专属 skill 文档（可选）
+```
+
+### 语义映射表
+
+`skills/gtools/references/modules.md` 维护模块关键词映射关系：
+
+| 模块名 | 关键词 | 描述 | skill.md |
+|--------|--------|------|----------|
+| backup_openclaw_memory | 备份、恢复、OpenClaw、记忆 | OpenClaw 记忆备份与恢复 | ✓ |
+| calculator | 计算、算术、加减乘除 | 基础计算器模块 | ✓ |
+| batch_landing | 回国、数据回国、批量回国 | 批量数据回国 | ✓ |
+| ... | ... | ... | ... |
+
+**skill.md 列说明：**
+- ✓ = 该模块有专属 SKILL.md 文档
+- ✗ = 无专属文档，使用默认执行方式
+
+### AI 使用流程
+
+1. **语义匹配**：读取 `modules.md`，根据用户请求关键词匹配模块名
+2. **检查 skill**：执行 `gtools info <module>` 查看是否有 SKILL.md
+3. **执行模块**：
+   - 有 SKILL.md → 阅读后按文档执行
+   - 无 SKILL.md → 使用默认方式执行或询问参数
+
+### 示例
+
+**有 skill.md 的模块：**
+```
+用户："帮我备份 OpenClaw 记忆"
+
+AI 执行流程：
+1. 读取 modules.md → 匹配"备份"、"OpenClaw" → backup_openclaw_memory
+2. gtools info backup_openclaw_memory → skill.md ✓
+3. 阅读 functions/backup_openclaw_memory/SKILL.md
+4. 执行 gtools backup_openclaw_memory backup
+```
+
+**无 skill.md 的模块：**
+```
+用户："帮我计算 10 和 20 的平均数"
+
+AI 执行流程：
+1. 读取 modules.md → 匹配"计算"、"平均数" → calculator
+2. gtools info calculator → skill.md ✓
+3. 阅读 SKILL.md 了解参数
+4. 执行 gtools calculator 10 20 --operation average
+```
+
+### 创建/更新 Skill
+
+**为新模块创建 SKILL.md：**
+```bash
+# 在模块目录下创建 SKILL.md
+touch functions/my_module/SKILL.md
+
+# 更新 modules.md，将 skill.md 列改为 ✓
+# 编辑 skills/gtools/references/modules.md
+```
+
+**SKILL.md 模板内容：**
+```markdown
+# <模块名> Skill
+
+## 功能描述
+简要说明模块用途
+
+## 参数说明
+- `--param1`: 参数说明
+- `--param2`: 参数说明
+
+## 使用示例
+```bash
+gtools <module> [参数]
+```
+
+## 注意事项
+特殊说明或警告
+```
+
+### 更新规则
+
+- 新增模块时，在 `modules.md` 表格中添加一行
+- 创建 SKILL.md 后，将对应行的 skill.md 列改为 ✓
+- 关键词用顿号分隔，包含中文和英文
+- 描述简洁明了，突出核心功能
+
 ## 🌈 内置示例
 
 ### backup_openclaw_memory 模块 🐱

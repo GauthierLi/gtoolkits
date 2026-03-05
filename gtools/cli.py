@@ -19,7 +19,8 @@ from .registry import (
     auto_import_functions_modules,
     list_modules_with_start_sh,
     execute_start_sh,
-    get_module_start_sh_path
+    get_module_start_sh_path,
+    get_module_skill_md_path
 )
 
 
@@ -42,6 +43,7 @@ class CLI:
   gtools module_name start                 # 执行模块的start.sh脚本
   gtools module_name start arg1 arg2       # 执行模块的start.sh脚本并传递参数
   gtools list                             # 列出所有可用模块
+  gtools root                             # 输出 gtools 根目录路径
   gtools run --config config.json                   # 运行管道配置文件
   gtools run --module-config config.json            # 运行单模块配置文件
   gtools run --module-config config.json --option operation=multiply  # 覆盖配置参数
@@ -56,12 +58,20 @@ class CLI:
         info_parser = subparsers.add_parser('info', help='显示模块详细信息')
         info_parser.add_argument('module_name', help='模块名称')
         
+        root_parser = subparsers.add_parser('root', help='输出 gtools 根目录路径')
+        
         run_parser = subparsers.add_parser('run', help='运行配置文件指定的模块')
         run_parser.add_argument('--config', required=False, help='管道配置文件路径（用于多模块管道）')
         run_parser.add_argument('--module-config', required=False, help='单模块配置文件路径（用于启动单个模块）')
         run_parser.add_argument('--option', required=False, nargs='+', help='覆盖配置文件中的参数，格式：key=value，支持多个参数')
         
         return parser
+    
+    def handle_root_command(self):
+        """处理 root 命令 - 输出 gtools 根目录路径"""
+        # 获取 cli.py 所在目录的父目录，即 gtools_rv 根目录
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        print(base_dir)
     
     def handle_list_command(self):
         """处理 list 命令"""
@@ -75,29 +85,33 @@ class CLI:
         
         # 创建美化表格
         table = BeautifulTable()
-        table.columns.header = ["模块名", "注册状态", "start.sh"]
+        table.columns.header = ["模块名", "注册状态", "start.sh", "skill.md"]
         
         # 添加表格数据
         for module in modules:
             is_complete = validate_module(module)
             has_start_sh = get_module_start_sh_path(module) is not None
+            has_skill_md = get_module_skill_md_path(module) is not None
             
             status = "✓ 完整" if is_complete else "✗ 不完整"
             start_sh_status = "✓ 有" if has_start_sh else "✗ 无"
+            skill_md_status = "✓ 有" if has_skill_md else "✗ 无"
             
-            table.rows.append([module, status, start_sh_status])
+            table.rows.append([module, status, start_sh_status, skill_md_status])
         
         # 设置表格样式
         table.set_style(BeautifulTable.STYLE_GRID)
         table.columns.alignment['模块名'] = BeautifulTable.ALIGN_LEFT
         table.columns.alignment['注册状态'] = BeautifulTable.ALIGN_CENTER
         table.columns.alignment['start.sh'] = BeautifulTable.ALIGN_CENTER
+        table.columns.alignment['skill.md'] = BeautifulTable.ALIGN_CENTER
         
         print(table)
         print(f"\n总计: {len(modules)} 个模块")
         print("说明:")
         print("  • 注册状态: ✓ 表示模块完整注册（有函数和参数解析器），✗ 表示注册不完整")
         print("  • start.sh: ✓ 表示模块包含启动脚本，✗ 表示无启动脚本")
+        print("  • skill.md: ✓ 表示模块包含 OpenClaw skill 文档，✗ 表示无 skill 文档")
         print("  • 使用 'gtools <module_name> start' 执行包含启动脚本的模块")
     
     def handle_info_command(self, module_name: str):
@@ -121,6 +135,7 @@ class CLI:
         config_path = self.config_handler.get_default_config_path(module_name)
         config_exists = os.path.exists(config_path)
         table.rows.append(["配置文件存在", "✓ 是" if config_exists else "✗ 否"])
+        table.rows.append(["skill.md 存在", "✓ 是" if info.get("has_skill_md") else "✗ 否"])
         
         # 设置表格样式
         table.set_style(BeautifulTable.STYLE_GRID)
@@ -137,6 +152,13 @@ class CLI:
             start_sh_path = get_module_start_sh_path(module_name)
             print(f"start.sh 路径: {start_sh_path}")
             print("使用命令: gtools {} start".format(module_name))
+        
+        # 显示 skill.md 信息
+        skill_md_path = get_module_skill_md_path(module_name)
+        if skill_md_path:
+            print(f"skill.md 路径：{skill_md_path}")
+        else:
+            print("提示：使用 'gtools create --skill <module_name>' 创建带 skill.md 的模块")
     
     def build_execution_order(self, modules: List[dict]) -> List[str]:
         """构建模块执行顺序，支持依赖关系"""
@@ -637,8 +659,8 @@ class CLI:
             parser.print_help()
             return
         
-        # 检查是否是子命令格式 (list, info, run)
-        if len(argv) >= 1 and argv[0] in ['list', 'info', 'run']:
+        # 检查是否是子命令格式 (list, info, root, run)
+        if len(argv) >= 1 and argv[0] in ['list', 'info', 'root', 'run']:
             parser = self.create_main_parser()
             try:
                 args = parser.parse_args(argv)
@@ -649,6 +671,10 @@ class CLI:
                 
                 if args.command == 'info':
                     self.handle_info_command(args.module_name)
+                    return
+                
+                if args.command == 'root':
+                    self.handle_root_command()
                     return
                 
                 if args.command == 'run':

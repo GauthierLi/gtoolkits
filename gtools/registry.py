@@ -101,6 +101,27 @@ def get_project_root() -> str:
     return os.path.dirname(os.path.dirname(__file__))
 
 
+def get_module_skill_md_path(module_name: str) -> Optional[str]:
+    """获取指定模块的 skill.md 文件路径，如果不存在则返回 None
+    支持 skill.md 和 SKILL.md 两种命名
+    """
+    base_dir = os.path.dirname(os.path.dirname(__file__))
+    functions_dir = os.path.join(base_dir, "functions")
+    module_dir = os.path.join(functions_dir, module_name)
+    
+    # 优先检查 skill.md（小写）
+    skill_md_path = os.path.join(module_dir, "skill.md")
+    if os.path.exists(skill_md_path):
+        return skill_md_path
+    
+    # 备用检查 SKILL.md（大写）
+    skill_md_path_upper = os.path.join(module_dir, "SKILL.md")
+    if os.path.exists(skill_md_path_upper):
+        return skill_md_path_upper
+    
+    return None
+
+
 def get_module_info(module_name: str) -> Dict[str, Any]:
     """获取模块的完整信息"""
     info = {
@@ -110,6 +131,7 @@ def get_module_info(module_name: str) -> Dict[str, Any]:
         "function": FUNCTION.get(module_name),
         "args_parser": ARGS.get(module_name),
         "has_start_sh": get_module_start_sh_path(module_name) is not None,
+        "has_skill_md": get_module_skill_md_path(module_name) is not None,
     }
     return info
 
