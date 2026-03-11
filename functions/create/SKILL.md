@@ -25,11 +25,11 @@ metadata: { "openclaw": { "emoji": "🆕", "requires": { "bins": ["python3"] } }
 ### 主要功能
 
 1. **创建模块目录**：在 `functions/<module_name>/` 下创建新目录
-2. **生成模板文件**：
+2. **生成模板文件**（默认包含 SKILL.md）：
    - `main.py` - 模块主入口（含注册装饰器）
    - `start.sh` - 启动脚本
    - `default.json` - 配置文件（在 `configs/<module_name>/`）
-   - `SKILL.md` - OpenClaw 技能包文档（可选）
+   - `SKILL.md` - OpenClaw 技能包文档（默认包含）
 3. **占位符替换**：自动将模板中的 `{MODULE_NAME}` 替换为实际模块名
 
 ### 输入参数
@@ -37,7 +37,6 @@ metadata: { "openclaw": { "emoji": "🆕", "requires": { "bins": ["python3"] } }
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `module_name` | string | 是 | 新模块的名称 |
-| `--skill` / `-s` | bool | 否 | 同时创建 SKILL.md 技能包模板 |
 
 ### 输出
 
@@ -50,14 +49,8 @@ metadata: { "openclaw": { "emoji": "🆕", "requires": { "bins": ["python3"] } }
 ### 基本用法
 
 ```bash
-# 创建新模块（基础模板）
+# 创建新模块（默认包含 SKILL.md）
 gtools create my_module
-
-# 创建模块并生成 SKILL.md
-gtools create my_module --skill
-
-# 简写
-gtools create my_module -s
 ```
 
 ### 创建后的文件结构
@@ -66,17 +59,10 @@ gtools create my_module -s
 gtoolkits/
 ├── functions/my_module/
 │   ├── main.py              # 模块主入口
-│   └── start.sh             # 启动脚本
+│   ├── start.sh             # 启动脚本
+│   └── SKILL.md             # OpenClaw 技能包文档（默认包含）
 └── configs/my_module/
     └── default.json         # 默认配置
-```
-
-如果加上 `--skill`：
-```
-functions/my_module/
-├── main.py
-├── start.sh
-└── SKILL.md                 # OpenClaw 技能包文档
 ```
 
 ## 配置示例
@@ -85,8 +71,7 @@ functions/my_module/
 {
   "_positional_args": {
     "module_name": "data_processor"
-  },
-  "skill": true
+  }
 }
 ```
 
@@ -124,7 +109,7 @@ def parse_args():
 - **模块命名**：使用小写字母和下划线（如 `my_module`）
 - **检查重复**：如果模块已存在会报错并退出
 - **系统保留模块**：不能创建与现有模块同名的模块
-- **SKILL.md**：创建后需要根据实际功能手动完善内容
+- **SKILL.md**：默认创建，创建后需要根据实际功能手动完善内容
 
 ## 相关文件
 

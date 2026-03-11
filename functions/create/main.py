@@ -15,7 +15,6 @@ from gtools.registry import ARGS, FUNCTION
 def main(args: argparse.Namespace):
     """主函数：创建新的算子模块"""
     module_name = args.module_name
-    with_skill = args.skill
 
     # 检查模块是否已存在
     base_dir = Path(__file__).parent.parent.parent
@@ -27,8 +26,7 @@ def main(args: argparse.Namespace):
         return
 
     print(f"🚀 开始创建新模块：{module_name}")
-    if with_skill:
-        print(f"📦 同时创建 OpenClaw 技能包模板 (SKILL.md)")
+    print(f"📦 默认创建 OpenClaw 技能包模板 (SKILL.md)")
 
     try:
         # 获取模板文件路径
@@ -78,22 +76,21 @@ def main(args: argparse.Namespace):
         os.chmod(target_start, 0o755)
         print(f"✅ 创建启动脚本：{target_start}")
 
-        # 如果指定了 --skill，创建 SKILL.md 模板
-        if with_skill:
-            template_skill = template_dir / "SKILL.md"
-            if template_skill.exists():
-                with open(template_skill, "r", encoding="utf-8") as f:
-                    skill_content = f.read()
+        # 创建 SKILL.md 模板（默认行为）
+        template_skill = template_dir / "SKILL.md"
+        if template_skill.exists():
+            with open(template_skill, "r", encoding="utf-8") as f:
+                skill_content = f.read()
 
-                # 替换占位符
-                skill_content = replace_placeholders(skill_content, module_name)
+            # 替换占位符
+            skill_content = replace_placeholders(skill_content, module_name)
 
-                target_skill = module_dir / "SKILL.md"
-                with open(target_skill, "w", encoding="utf-8") as f:
-                    f.write(skill_content)
-                print(f"✅ 创建技能包模板：{target_skill}")
-            else:
-                print(f"⚠️  警告：SKILL.md 模板文件不存在，跳过创建")
+            target_skill = module_dir / "SKILL.md"
+            with open(target_skill, "w", encoding="utf-8") as f:
+                f.write(skill_content)
+            print(f"✅ 创建技能包模板：{target_skill}")
+        else:
+            print(f"⚠️  警告：SKILL.md 模板文件不存在，跳过创建")
 
         print(f"\n🎉 模块 '{module_name}' 创建成功！")
         print(f"📂 模块路径：{module_dir}")
@@ -103,12 +100,11 @@ def main(args: argparse.Namespace):
         print(f"   gtools {module_name} start     # 执行启动脚本")
         print(f"   gtools {module_name} --help   # 查看帮助信息")
         
-        if with_skill:
-            print(f"\n🐱 技能包转换:")
-            print(f"   1. 编辑 {module_dir}/SKILL.md 完善技能描述")
-            print(f"   2. 参考 OpenClaw 技能包格式 (name, description 必填)")
-            print(f"   3. 可添加 scripts/, references/, assets/ 目录")
-            print(f"   4. 使用 OpenClaw 技能打包工具打包")
+        print(f"\n🐱 技能包转换:")
+        print(f"   1. 编辑 {module_dir}/SKILL.md 完善技能描述")
+        print(f"   2. 参考 OpenClaw 技能包格式 (name, description 必填)")
+        print(f"   3. 可添加 scripts/, references/, assets/ 目录")
+        print(f"   4. 使用 OpenClaw 技能打包工具打包")
         
         print(f"\n📝 配置文件说明:")
         print(f'   • 位置参数配置：使用 "_positional_args" 字段')
@@ -146,19 +142,11 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
-  gtools create my_module           # 创建名为 my_module 的新模块
+  gtools create my_module           # 创建名为 my_module 的新模块（默认包含 SKILL.md）
   gtools create data_processor      # 创建名为 data_processor 的新模块
-  gtools create my_module --skill   # 创建模块并生成 OpenClaw 技能包模板
         """.strip(),
     )
 
     parser.add_argument("module_name", help="要创建的模块名称")
-    
-    parser.add_argument(
-        "--skill",
-        action="store_true",
-        default=False,
-        help="同时创建 OpenClaw 技能包模板 (SKILL.md)，方便后续转为技能包",
-    )
 
     return parser

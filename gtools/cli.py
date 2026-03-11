@@ -158,7 +158,7 @@ class CLI:
         if skill_md_path:
             print(f"skill.md 路径：{skill_md_path}")
         else:
-            print("提示：使用 'gtools create --skill <module_name>' 创建带 skill.md 的模块")
+            print("提示：新创建的模块默认包含 skill.md，此模块可能是手动创建的")
     
     def build_execution_order(self, modules: List[dict]) -> List[str]:
         """构建模块执行顺序，支持依赖关系"""

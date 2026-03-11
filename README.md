@@ -102,7 +102,8 @@ gtool_registry_version/
 │   │   ├── main.py
 │   │   └── reference/        # 模板文件
 │   │       ├── main.py       # Python 模块模板
-│   │       └── default.json  # 配置文件模板
+│   │       ├── default.json  # 配置文件模板
+│   │       └── SKILL.md      # OpenClaw 技能包模板
 │   └── remove/               # 模块删除工具
 │       └── main.py
 ├── configs/                   # 配置文件目录
@@ -141,6 +142,7 @@ gtools my_awesome_tool start
 - `main.py` - 模块主文件
 - `default.json` - 配置文件  
 - `start.sh` - 启动脚本模板（包含参数处理示例）
+- `SKILL.md` - OpenClaw 技能包模板（默认包含）
 
 ### 手动创建
 
@@ -457,7 +459,11 @@ AI 执行流程：
 
 ### 创建/更新 Skill
 
-**为新模块创建 SKILL.md：**
+**新模块默认包含 SKILL.md：**
+
+使用 `gtools create <module_name>` 创建的模块会自动包含 SKILL.md 模板，无需手动创建。
+
+**为现有模块添加 SKILL.md：**
 ```bash
 # 在模块目录下创建 SKILL.md
 touch functions/my_module/SKILL.md
